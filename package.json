@@ -1,0 +1,14 @@
+{
+  "name": "react-video-timeline-editor",
+  "private": true,
+  "workspaces": [
+    "packages/editor",
+    "demo/nextjs"
+  ],
+  "scripts": {
+    "build": "npm run build -w @ektie/react-video-timeline-editor",
+    "test": "npm run test -w @ektie/react-video-timeline-editor",
+    "demo": "npm run dev -w @ektie/timeline-editor-nextjs-demo",
+    "security-scan": "node scripts/security-scan.mjs"
+  }
+}

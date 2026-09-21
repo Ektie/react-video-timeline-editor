@@ -1,0 +1,15 @@
+@import "./ui/ui.css";
+@import "./TimelineEditor.css";
+@import "./AssetPicker.css";
+
+:root {
+    --vte-accent: #1f4f58;
+    --card: #fff;
+    --muted: #f4f4f5;
+    --border: #e5e5e5;
+    --foreground: #111;
+    --muted-foreground: #666;
+    --background: #fff;
+    --error: #c7361f;
+    --human: var(--vte-accent);
+}

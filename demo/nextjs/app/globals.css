@@ -1,0 +1,55 @@
+html, body {
+    margin: 0;
+    min-height: 100%;
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    background: #f6f6f4;
+    color: #161616;
+}
+* { box-sizing: border-box; }
+.demo-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    gap: 12px;
+    padding: 16px 20px 24px;
+}
+.demo-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+.demo-kicker {
+    margin: 0 0 4px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #666;
+}
+h1 { margin: 0 0 6px; font-size: 22px; }
+.demo-lead { margin: 0; max-width: 56ch; color: #444; font-size: 14px; }
+.demo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.demo-actions button, .demo-file, .demo-slot {
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+}
+.demo-file { display: inline-flex; align-items: center; }
+.demo-file input { display: none; }
+.demo-events {
+    border-top: 1px solid #e5e5e5;
+    padding-top: 12px;
+}
+.demo-events h2 { margin: 0 0 4px; font-size: 14px; }
+.demo-events p { margin: 0 0 8px; font-size: 12px; color: #666; }
+.demo-events ol { margin: 0; padding-left: 18px; font-size: 12px; }
+.demo-events time { display: inline-block; min-width: 88px; color: #888; }
+.demo-foot { font-size: 12px; color: #666; }
+.demo-foot a { color: #1f4f58; }
+code { font-size: 0.92em; }

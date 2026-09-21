@@ -1,0 +1,2302 @@
+/* Multi-track video timeline editor.
+   The board follows the host page theme when CSS variables are present. */
+
+.cs-nle {
+    /* Overridden inline by the drag handle between preview and board. */
+    --stage-h: clamp(240px, 46vh, 460px);
+    --lane-h: 40px;
+    --lane-h-video: 52px;
+    --ruler-h: 26px;
+    --nle-surface: var(--card, #fff);
+    --nle-surface-2: color-mix(in srgb, var(--muted, #f4f4f5) 80%, var(--card, #fff));
+    --nle-line: var(--border, #e5e5e5);
+    --nle-text: var(--foreground, #111);
+    --nle-text-dim: var(--muted-foreground, #666);
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2, 8px);
+    min-width: 0;
+    outline: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Root is focused so Space/S/arrows keep working after a clip click — that is
+   not a visible “active” state. Selection lives on the clip; suppress the
+   global :focus-visible ring (and our own) so the whole editor doesn’t get
+   a double border. */
+.cs-nle:focus,
+.cs-nle:focus-visible {
+    outline: none;
+    box-shadow: none;
+}
+
+.cs-nle-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.cs-nle-top {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3, 12px);
+}
+
+/*
+ * Preview, with the subtitle script optionally alongside it. The list is a
+ * fixed column so the picture keeps whatever is left, rather than the two
+ * fighting over the width as the text wraps.
+ */
+.cs-nle-viewer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-3, 12px);
+    align-items: start;
+    min-width: 0;
+}
+
+.cs-nle-top.has-rail .cs-nle-viewer {
+    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+    align-items: stretch;
+    /* Lock both columns to the preview height so the rail scrolls beside it. */
+    height: var(--stage-h, clamp(240px, 46vh, 460px));
+}
+
+.cs-nle-top.has-rail .cs-nle-stage {
+    height: 100%;
+    max-height: 100%;
+    justify-self: center;
+}
+
+@media (max-width: 900px) {
+    .cs-nle-top.has-rail .cs-nle-viewer {
+        grid-template-columns: minmax(0, 1fr);
+        height: auto;
+    }
+
+    .cs-nle-top.has-rail .cs-nle-stage {
+        height: var(--stage-h, clamp(240px, 46vh, 460px));
+    }
+
+    .cs-nle-top.has-rail .cs-subs {
+        height: min(42vh, var(--stage-h, 460px));
+        max-height: min(42vh, var(--stage-h, 460px));
+    }
+}
+
+/* ── Stage ─────────────────────────────────────────────────────────────── */
+
+/* Sized by height so a 9:16 target actually looks like a phone frame. Setting
+   width:100% and capping the height just letterboxes it into a wrong shape. */
+.cs-nle-stage {
+    position: relative;
+    height: var(--stage-h, clamp(240px, 46vh, 460px));
+    width: auto;
+    max-width: 100%;
+    aspect-ratio: var(--stage-ar, 9 / 16);
+    margin: 0 auto;
+    background: #000;
+    border-radius: var(--r-2, 6px);
+    overflow: hidden;
+    border: 0;
+    container-type: size;
+}
+
+.cs-nle-stage-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    /* Transparent so stacked dissolve layers don't each paint a black plate
+       (that read as a fade-to-black mid-crossfade). The stage itself is black. */
+    background: transparent;
+    transition: opacity 40ms linear;
+}
+
+/* Fitted source window inside the delivery frame. Zoom handles and the crop
+   both live here so a 16:9 recording in a 9:16 stage still aims at pixels. */
+.cs-nle-stage-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.cs-nle-stage-fit {
+    position: absolute;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.cs-nle-stage-plate {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cs-nle-stage-pad {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--muted, #f4f4f5) 70%, var(--card, #fff));
+}
+
+.cs-nle-stage-pad.is-intro {
+    border-right: 1px dashed var(--border, #e5e5e5);
+}
+
+.cs-nle-stage-pad.is-outro {
+    border-left: 1px dashed var(--border, #e5e5e5);
+}
+
+.cs-nle-stage-fit .cs-nle-stage-media {
+    object-fit: fill;
+}
+
+.cs-nle-stage-media.is-dissolve-in {
+    z-index: 1;
+}
+
+.cs-nle-stage-media[hidden] {
+    display: none;
+}
+
+.cs-nle-spotlight {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.cs-nle-spotlight-hole {
+    position: absolute;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+    border-radius: 2px;
+}
+
+.cs-nle-region {
+    position: absolute;
+    z-index: 5;
+    box-sizing: border-box;
+    border: 2px solid color-mix(in srgb, #fff 82%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, #000 45%, transparent);
+    cursor: move;
+    touch-action: none;
+}
+
+.cs-nle-region.is-spotlight {
+    border-style: dashed;
+}
+
+.cs-nle-region-handle {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    background: #fff;
+    border: 1px solid color-mix(in srgb, #000 40%, transparent);
+    border-radius: 1px;
+    pointer-events: auto;
+}
+
+.cs-nle-region-handle[data-handle="nw"] { top: 0; left: 0; cursor: nwse-resize; }
+.cs-nle-region-handle[data-handle="n"]  { top: 0; left: 50%; margin-left: -4px; cursor: ns-resize; }
+.cs-nle-region-handle[data-handle="ne"] { top: 0; right: 0; cursor: nesw-resize; }
+.cs-nle-region-handle[data-handle="e"]  { top: 50%; right: 0; margin-top: -4px; cursor: ew-resize; }
+.cs-nle-region-handle[data-handle="se"] { bottom: 0; right: 0; cursor: nwse-resize; }
+.cs-nle-region-handle[data-handle="s"]  { bottom: 0; left: 50%; margin-left: -4px; cursor: ns-resize; }
+.cs-nle-region-handle[data-handle="sw"] { bottom: 0; left: 0; cursor: nesw-resize; }
+.cs-nle-region-handle[data-handle="w"]  { top: 50%; left: 0; margin-top: -4px; cursor: ew-resize; }
+
+.cs-nle-stage-pip {
+    position: absolute;
+    z-index: 2;
+    object-fit: contain;
+    display: block;
+    background: #000;
+    border: 1px solid color-mix(in srgb, #fff 28%, transparent);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+}
+
+.cs-nle-stage-split {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+    background: #000;
+}
+
+.cs-nle-stage-split-pane {
+    flex: 1 1 50%;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+    cursor: grab;
+}
+
+.cs-nle-stage-split-pane:active {
+    cursor: grabbing;
+}
+
+.cs-nle-stage-split-pane video,
+.cs-nle-stage-split-pane img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #000;
+}
+
+.cs-nle-stage-split-rule {
+    flex: 0 0 1px;
+    background: color-mix(in srgb, #fff 28%, transparent);
+}
+
+.cs-nle-stage-note {
+    position: absolute;
+    inset: auto 0 0;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2, 8px);
+    color: color-mix(in srgb, #fff 62%, transparent);
+    font-size: var(--fs-sm, 13px);
+    pointer-events: none;
+}
+
+.cs-nle-stage-note.is-error {
+    pointer-events: auto;
+    color: color-mix(in srgb, var(--error, #c7361f) 78%, #fff);
+}
+
+.cs-nle-stage-note [data-slot="button"] {
+    pointer-events: auto;
+    color: #fff;
+    border-color: color-mix(in srgb, #fff 34%, transparent);
+}
+
+/* Platform safe areas: the zones each feed covers with its own chrome. */
+.cs-nle-safe {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-top: 12cqh solid color-mix(in srgb, #000 42%, transparent);
+    border-bottom: 20cqh solid color-mix(in srgb, #000 42%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 22%, transparent);
+}
+
+.cs-nle-caption {
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    padding: 0.6em 0.8em;
+    border-radius: var(--r-2, 5px);
+    text-align: center;
+    line-height: 1.25;
+    font-weight: 600;
+    text-wrap: balance;
+    pointer-events: none;
+}
+
+/* The caption is the shortest route to editing the line it belongs to. */
+button.cs-nle-caption {
+    display: block;
+    width: auto;
+    border: 1px solid transparent;
+    font: inherit;
+    font-weight: 600;
+    cursor: text;
+    pointer-events: auto;
+}
+
+button.cs-nle-caption:hover,
+button.cs-nle-caption:focus-visible {
+    border-color: color-mix(in srgb, #fff 55%, transparent);
+    outline: none;
+}
+
+/* ── Toolbars ──────────────────────────────────────────────────────────── */
+
+.cs-nle-toolbars {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-bottom: 1px solid var(--border, #e5e5e5);
+}
+
+.cs-nle-toolbar {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3, 12px);
+    padding: 5px 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    min-width: 0;
+}
+
+.cs-nle-toolbar.is-edit {
+    padding-bottom: 4px;
+}
+
+.cs-nle-toolbar.is-view {
+    padding-top: 4px;
+    border-top: 1px solid color-mix(in srgb, var(--border, #e5e5e5) 70%, transparent);
+}
+
+.cs-nle-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.cs-nle-toolbar-end {
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+.cs-nle-add-media {
+    position: relative;
+}
+
+.cs-nle-transport {
+    gap: 6px;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.cs-nle-play {
+    min-width: 0;
+}
+
+
+.cs-nle-rate {
+    width: auto;
+    min-width: 62px;
+}
+
+.cs-nle-rate-trigger {
+    min-width: 62px;
+}
+
+.cs-nle-clock {
+    font-variant-numeric: tabular-nums;
+    font-size: var(--fs-xs, 12px);
+    color: var(--muted-foreground, #444);
+    white-space: nowrap;
+}
+
+.cs-nle-clock span {
+    color: var(--muted-foreground, #888);
+}
+
+.cs-nle-zoom { width: 80px; }
+.cs-nle-volume { width: 64px; }
+
+.cs-nle-zoom,
+.cs-nle-volume {
+    accent-color: var(--human, #1f4f58);
+}
+
+.cs-nle-clip-level {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1, 4px);
+    margin-left: var(--sp-1, 4px);
+    font-size: var(--fs-xs, 12px);
+    color: var(--muted-foreground, #444);
+    white-space: nowrap;
+}
+
+.cs-nle-clip-level-pct {
+    min-width: 2.5em;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted-foreground, #666);
+}
+
+.cs-nle-pip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1, 4px);
+    margin-left: var(--sp-1, 4px);
+    font-size: var(--fs-xs, 12px);
+    color: var(--muted-foreground, #444);
+    white-space: nowrap;
+}
+
+.cs-nle-pip-corners {
+    display: grid;
+    grid-template-columns: repeat(3, 22px);
+    grid-template-rows: repeat(3, 22px);
+    gap: 2px;
+}
+
+.cs-nle-pip-corner {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border, #ddd);
+    border-radius: 4px;
+    background: var(--background, #fff);
+    cursor: pointer;
+    position: relative;
+}
+
+.cs-nle-pip-corner::after {
+    content: "";
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    background: var(--human, #1f4f58);
+    border-radius: 1px;
+    opacity: 0.55;
+}
+
+.cs-nle-pip-corner[data-corner="tl"]::after { top: 3px; left: 3px; }
+.cs-nle-pip-corner[data-corner="tc"]::after { top: 3px; left: 50%; transform: translateX(-50%); }
+.cs-nle-pip-corner[data-corner="tr"]::after { top: 3px; right: 3px; }
+.cs-nle-pip-corner[data-corner="ml"]::after { top: 50%; left: 3px; transform: translateY(-50%); }
+.cs-nle-pip-corner[data-corner="mc"]::after { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.cs-nle-pip-corner[data-corner="mr"]::after { top: 50%; right: 3px; transform: translateY(-50%); }
+.cs-nle-pip-corner[data-corner="bl"]::after { bottom: 3px; left: 3px; }
+.cs-nle-pip-corner[data-corner="bc"]::after { bottom: 3px; left: 50%; transform: translateX(-50%); }
+.cs-nle-pip-corner[data-corner="br"]::after { bottom: 3px; right: 3px; }
+
+.cs-nle-pip-corner.is-active {
+    border-color: var(--human, #1f4f58);
+    background: color-mix(in srgb, var(--human, #1f4f58) 12%, transparent);
+}
+
+.cs-nle-pip-corner.is-active::after {
+    opacity: 1;
+}
+
+.cs-nle-pip-size {
+    width: 72px;
+    accent-color: var(--human, #1f4f58);
+}
+
+.cs-nle-pip-hint {
+    font-size: var(--fs-xs, 12px);
+    color: var(--muted-foreground, #666);
+    margin-left: var(--sp-1, 4px);
+}
+
+.cs-nle-save {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1, 4px);
+    font-size: var(--fs-xs, 12px);
+    color: var(--muted-foreground, #666);
+    white-space: nowrap;
+}
+
+.cs-nle-save.is-saving svg {
+    animation: cs-nle-spin 1s linear infinite;
+}
+
+.cs-nle-save.is-error {
+    color: var(--error, #c7361f);
+}
+
+@keyframes cs-nle-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cs-nle-save.is-saving svg { animation: none; }
+}
+
+/* ── Preview / board resize handle ─────────────────────────────────────── */
+
+.cs-nle-resize {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 12px;
+    margin: calc(var(--sp-2, 8px) * -1) 0;
+    cursor: row-resize;
+    touch-action: none;
+}
+
+.cs-nle-resize-grip {
+    width: 44px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border, #e2e2e2);
+    transition: background 120ms ease, width 120ms ease;
+}
+
+.cs-nle-resize:hover .cs-nle-resize-grip,
+.cs-nle-resize:focus-visible .cs-nle-resize-grip {
+    background: var(--human, #17786f);
+    width: 64px;
+}
+
+.cs-nle-resize:focus-visible {
+    outline: 2px solid var(--human, #17786f);
+    outline-offset: 2px;
+    border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cs-nle-resize-grip { transition: none; }
+}
+
+/* ── Delivery chip ─────────────────────────────────────────────────────── */
+
+.cs-nle-delivery {
+    position: relative;
+    display: inline-flex;
+}
+
+.cs-nle-delivery-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2, 8px);
+    padding: 3px var(--sp-2, 8px);
+    border: 1px solid var(--border, #e2e2e2);
+    border-radius: var(--r-2, 6px);
+    background: transparent;
+    font-size: var(--fs-xs, 12px);
+    color: var(--muted-foreground, #444);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.cs-nle-delivery-chip:hover,
+.cs-nle-delivery-chip.is-open {
+    border-color: var(--human, #17786f);
+    color: var(--human, #17786f);
+}
+
+.cs-nle-delivery-chip:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.cs-nle-delivery-dim {
+    color: var(--muted-foreground, #666);
+    font-variant-numeric: tabular-nums;
+}
+
+.cs-nle-delivery-chip:hover .cs-nle-delivery-dim,
+.cs-nle-delivery-chip.is-open .cs-nle-delivery-dim {
+    color: inherit;
+}
+
+.dropdown-menu.cs-nle-delivery-pop {
+    /* Position comes from CustomDropdown (fixed + portal). Keep panel chrome only. */
+    width: 320px;
+    max-width: min(320px, calc(100vw - 16px));
+    min-width: 280px;
+    padding: var(--sp-3, 12px);
+    border: 1px solid var(--border, #e2e2e2);
+    border-radius: var(--r-3, 8px);
+    background: var(--card, #fff);
+    box-shadow: var(--shadow-2, 0 8px 24px rgba(0, 0, 0, 0.12));
+}
+
+.cs-nle-delivery-note {
+    margin: var(--sp-2, 8px) 0 0;
+    font-size: var(--fs-xs, 12px);
+    color: var(--muted-foreground, #666);
+}
+
+/* ── Download ──────────────────────────────────────────────────────────── */
+
+.cs-dl {
+    gap: var(--sp-1, 4px);
+    white-space: nowrap;
+}
+
+.cs-dl-pct {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.75;
+}
+
+.cs-dl-ring {
+    /* The arc starts at 12 o'clock rather than 3, where a progress bar reads. */
+    transform: rotate(-90deg);
+    flex: none;
+}
+
+.cs-dl-ring circle {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+}
+
+.cs-dl-ring-track {
+    stroke: color-mix(in srgb, currentColor 25%, transparent);
+}
+
+.cs-dl-ring-arc {
+    stroke: currentColor;
+    transition: stroke-dashoffset 400ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cs-dl-ring-arc { transition: none; }
+}
+
+/* ── Overlap banner ────────────────────────────────────────────────────── */
+
+.cs-nle-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, 8px);
+    padding: var(--sp-2, 8px) var(--sp-3, 12px);
+    border-radius: var(--r-3, 8px);
+    font-size: var(--fs-sm, 13px);
+    color: var(--warn, #b57028);
+    background: color-mix(in srgb, var(--warn, #b57028) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warn, #b57028) 32%, transparent);
+}
+
+.cs-nle-banner span { flex: 1; }
+
+/* ── Board ─────────────────────────────────────────────────────────────── */
+
+.cs-nle-board {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    border: 1px solid var(--nle-line);
+    border-radius: var(--r-3, 8px);
+    overflow: visible;
+    background: var(--nle-surface);
+}
+
+.cs-nle-board-body {
+    display: flex;
+    align-items: stretch;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: var(--r-3, 8px) var(--r-3, 8px) 0 0;
+}
+
+.cs-nle-gutter {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    background: var(--nle-surface-2);
+    border-right: 1px solid var(--nle-line);
+    z-index: 2;
+}
+
+.cs-nle-gutter-ruler {
+    height: var(--ruler-h);
+    border-bottom: 1px solid var(--nle-line);
+}
+
+/* Rows and lanes share the same height variables — they used to drift 8px
+   apart on every track below video. */
+.cs-nle-gutter-row,
+.cs-nle-lane {
+    height: var(--lane-h);
+    box-sizing: border-box;
+}
+
+.cs-nle-row--video,
+.cs-nle-row--still {
+    height: var(--lane-h-video);
+}
+
+.cs-nle-gutter-row {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--nle-line);
+}
+
+.cs-nle-gutter-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1 1 auto;
+    color: var(--nle-text);
+    font-size: 11px;
+    font-weight: 550;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.cs-nle-gutter-name > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cs-nle-gutter-tools {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .cs-nle-gutter-tools {
+        position: absolute;
+        right: 4px;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0;
+        pointer-events: none;
+        padding: 1px;
+        border-radius: var(--r-1, 3px);
+        background: color-mix(in srgb, var(--nle-surface-2) 92%, transparent);
+        backdrop-filter: blur(4px);
+        transition: opacity 120ms ease;
+    }
+
+    .cs-nle-gutter-row:hover .cs-nle-gutter-tools,
+    .cs-nle-gutter-row:focus-within .cs-nle-gutter-tools,
+    .cs-nle-gutter-row.is-armed .cs-nle-gutter-tools {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+.cs-nle-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-1, 3px);
+    background: transparent;
+    color: var(--nle-text-dim);
+    cursor: pointer;
+}
+
+.cs-nle-tool:hover {
+    background: color-mix(in srgb, var(--nle-text) 10%, transparent);
+    color: var(--nle-text);
+}
+
+.cs-nle-tool.is-off { color: color-mix(in srgb, var(--nle-text) 35%, transparent); }
+.cs-nle-tool.is-on { color: var(--human, #1f4f58); background: color-mix(in srgb, var(--human, #1f4f58) 22%, transparent); }
+.cs-nle-tool.is-danger:hover {
+    color: color-mix(in srgb, var(--error, #c7361f) 80%, #fff);
+    background: color-mix(in srgb, var(--error, #c7361f) 22%, transparent);
+}
+
+.cs-nle-tool:focus-visible,
+.cs-nle-clip:focus-visible {
+    outline: 2px solid var(--human, #1f4f58);
+    outline-offset: 1px;
+}
+
+.cs-nle-scroll {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    scrollbar-color: color-mix(in srgb, var(--nle-text) 28%, transparent) transparent;
+}
+
+.cs-nle-scroll::-webkit-scrollbar { height: 10px; }
+.cs-nle-scroll::-webkit-scrollbar-track { background: var(--nle-surface-2); }
+
+.cs-nle-scroll::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--nle-text) 22%, transparent);
+    border-radius: var(--r-pill, 999px);
+    border: 2px solid var(--nle-surface-2);
+}
+
+.cs-nle-canvas {
+    position: relative;
+    user-select: none;
+}
+
+.cs-nle-ruler {
+    position: relative;
+    height: var(--ruler-h);
+    border-bottom: 1px solid var(--nle-line);
+    background: var(--nle-surface-2);
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+.cs-nle-tick {
+    position: absolute;
+    top: 6px;
+    transform: translateX(-50%);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    color: var(--nle-text-dim);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.cs-nle-lanes {
+    position: relative;
+    touch-action: none;
+}
+
+.cs-nle-gridline {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: color-mix(in srgb, var(--nle-text) 10%, transparent);
+    pointer-events: none;
+}
+
+.cs-nle-lane {
+    position: relative;
+    border-bottom: 1px solid var(--nle-line);
+}
+
+.cs-nle-lane.is-hidden { opacity: 0.4; }
+
+.cs-nle-lane.is-locked::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 6px,
+        color-mix(in srgb, var(--nle-text) 8%, transparent) 6px,
+        color-mix(in srgb, var(--nle-text) 8%, transparent) 12px
+    );
+    pointer-events: none;
+}
+
+/* ── Clips ─────────────────────────────────────────────────────────────── */
+
+.cs-nle-clip {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    border-radius: var(--r-2, 5px);
+    overflow: hidden;
+    cursor: grab;
+    z-index: 1;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    touch-action: none;
+}
+
+.cs-nle-clip:active { cursor: grabbing; }
+
+.cs-nle-clip.is-placeholder {
+    border-style: dashed;
+    opacity: 0.72;
+}
+
+.cs-nle-xfade {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    z-index: 6;
+    appearance: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transform: translateX(-50%);
+}
+.cs-nle-xfade::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    background: color-mix(in srgb, #fff 55%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, #000 35%, transparent);
+    pointer-events: none;
+}
+.cs-nle-xfade.is-dissolve::before {
+    width: max(10px, var(--xfade-w, 10px));
+    background: linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in srgb, var(--human, #1f4f58) 55%, transparent),
+        transparent
+    );
+    box-shadow: none;
+    border-radius: 2px;
+}
+.cs-nle-xfade-diamond {
+    position: relative;
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+    border: 2px solid #fff;
+    background: color-mix(in srgb, var(--text-muted, #6b7280) 70%, #111);
+    transform: rotate(45deg);
+    border-radius: 2px;
+    box-shadow: 0 1px 3px color-mix(in srgb, #000 55%, transparent);
+}
+.cs-nle-xfade.is-dissolve .cs-nle-xfade-diamond {
+    width: 13px;
+    height: 13px;
+    background: var(--human, #1f4f58);
+    border-color: #fff;
+}
+.cs-nle-xfade:hover .cs-nle-xfade-diamond,
+.cs-nle-xfade:focus-visible .cs-nle-xfade-diamond {
+    background: var(--human, #1f4f58);
+    outline: none;
+}
+.cs-nle-xfade-label {
+    position: relative;
+    z-index: 1;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background: var(--human, #1f4f58);
+    border: 1px solid #fff;
+    border-radius: 999px;
+    padding: 2px 6px;
+    box-shadow: 0 1px 3px color-mix(in srgb, #000 45%, transparent);
+    white-space: nowrap;
+    pointer-events: none;
+}
+.cs-nle-xfade-label.is-cut {
+    background: color-mix(in srgb, #111 75%, transparent);
+    font-weight: 600;
+    opacity: 0;
+}
+.cs-nle-xfade.is-cut:hover .cs-nle-xfade-label.is-cut,
+.cs-nle-xfade.is-cut:focus-visible .cs-nle-xfade-label.is-cut {
+    opacity: 1;
+}
+
+.cs-nle-clip.is-selected {
+    outline: 2px solid var(--human, #1f4f58);
+    outline-offset: -1px;
+    border-color: transparent;
+    z-index: 3;
+}
+
+/* Selected clips already show .is-selected — don’t stack a second focus ring. */
+.cs-nle-clip.is-selected:focus,
+.cs-nle-clip.is-selected:focus-visible {
+    outline: 2px solid var(--human, #1f4f58);
+    outline-offset: -1px;
+    box-shadow: none;
+}
+
+.cs-nle-selection-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 28px;
+    padding: 0 7px;
+    border-radius: var(--r-1, 3px);
+    background: color-mix(in srgb, var(--human, #1f4f58) 16%, transparent);
+    color: var(--human, #1f4f58);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.cs-nle-add-track {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 4px 8px;
+    background: var(--nle-surface-2);
+    border-top: 1px solid var(--nle-line);
+    border-radius: 0 0 var(--r-3, 8px) var(--r-3, 8px);
+    z-index: 5;
+}
+
+.cs-nle-marquee {
+    position: absolute;
+    z-index: 6;
+    pointer-events: none;
+    border: 1px dashed color-mix(in srgb, var(--human, #1f4f58) 70%, #fff);
+    background: color-mix(in srgb, var(--human, #1f4f58) 8%, transparent);
+    border-radius: 2px;
+}
+
+.cs-nle-lanes,
+.cs-nle-board,
+.cs-nle-canvas {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Data-viz palette: clip colour identifies a track, it is not a signal.
+   The AI red and human teal stay out of here on purpose. */
+.cs-nle-clip--video,
+.cs-nle-clip--still {
+    background: color-mix(in srgb, var(--viz-4, #4F5C70) 46%, #0d0d0d);
+    border-color: color-mix(in srgb, var(--viz-4, #4F5C70) 80%, transparent);
+    color: color-mix(in srgb, var(--viz-4, #4F5C70) 30%, #fff);
+}
+
+.cs-nle-clip--audio {
+    background: color-mix(in srgb, var(--viz-5, #5C7A4A) 44%, #0d0d0d);
+    border-color: color-mix(in srgb, var(--viz-5, #5C7A4A) 78%, transparent);
+    color: color-mix(in srgb, var(--viz-5, #5C7A4A) 26%, #fff);
+}
+
+.cs-nle-clip--music {
+    background: color-mix(in srgb, var(--viz-3, #6B4263) 44%, #0d0d0d);
+    border-color: color-mix(in srgb, var(--viz-3, #6B4263) 78%, transparent);
+    color: color-mix(in srgb, var(--viz-3, #6B4263) 26%, #fff);
+}
+
+.cs-nle-clip--subtitle {
+    background: color-mix(in srgb, var(--viz-7, #B58E2C) 36%, #0d0d0d);
+    border-color: color-mix(in srgb, var(--viz-7, #B58E2C) 72%, transparent);
+    cursor: text;
+}
+
+.cs-nle-clip--zoom {
+    background: color-mix(in srgb, var(--viz-2, #3D6B8A) 42%, #0d0d0d);
+    border-color: color-mix(in srgb, var(--viz-2, #3D6B8A) 76%, transparent);
+    color: color-mix(in srgb, var(--viz-2, #3D6B8A) 28%, #fff);
+}
+
+.cs-nle-clip--spotlight {
+    background: color-mix(in srgb, var(--viz-6, #8A6B3D) 42%, #0d0d0d);
+    border-color: color-mix(in srgb, var(--viz-6, #8A6B3D) 76%, transparent);
+    color: color-mix(in srgb, var(--viz-6, #8A6B3D) 28%, #fff);
+}
+
+.cs-nle-clip-canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    opacity: 0.9;
+    pointer-events: none;
+}
+
+.cs-nle-clip-label {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    bottom: 3px;
+    font-size: var(--fs-xs, 10px);
+    line-height: 1.2;
+    color: color-mix(in srgb, #fff 92%, transparent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.cs-nle-clip-badges {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    z-index: 2;
+    display: flex;
+    gap: 3px;
+    pointer-events: none;
+}
+
+/* Marks a video clip whose sound now lives on an audio row. */
+.cs-nle-clip-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: var(--r-pill, 999px);
+    background: color-mix(in srgb, #000 62%, transparent);
+    color: color-mix(in srgb, #fff 88%, transparent);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    pointer-events: none;
+}
+
+.cs-nle-clip-badge.is-speed {
+    background: color-mix(in srgb, var(--ai, #e11d48) 78%, #000);
+}
+
+.cs-nle-clip-input {
+    position: absolute;
+    inset: 2px;
+    z-index: 4;
+    width: calc(100% - 4px);
+    padding: 0 4px;
+    border: 0;
+    border-radius: var(--r-1, 3px);
+    background: var(--background, #fff);
+    color: var(--foreground, #111);
+    font-size: var(--fs-xs, 11px);
+}
+
+.cs-nle-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    z-index: 3;
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+.cs-nle-handle.is-start { left: 0; }
+.cs-nle-handle.is-end { right: 0; }
+
+.cs-nle-handle::after {
+    content: "";
+    position: absolute;
+    top: 25%;
+    bottom: 25%;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    border-radius: 1px;
+    background: color-mix(in srgb, #fff 70%, transparent);
+    opacity: 0;
+    transition: opacity var(--dur-fast, 120ms) var(--ease-out, ease);
+}
+
+.cs-nle-clip:hover .cs-nle-handle::after,
+.cs-nle-clip.is-selected .cs-nle-handle::after {
+    opacity: 1;
+}
+
+/* ── Playhead + snap guide ─────────────────────────────────────────────── */
+
+.cs-nle-playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--ai, #d9482f);
+    z-index: 5;
+    pointer-events: none;
+}
+
+.cs-nle-playhead-cap {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 11px;
+    height: 11px;
+    background: var(--ai, #d9482f);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.cs-nle-guide {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--human, #1f4f58);
+    box-shadow: 0 0 5px color-mix(in srgb, var(--human, #1f4f58) 80%, transparent);
+    z-index: 4;
+    pointer-events: none;
+}
+
+/* ── Trailing add button ───────────────────────────────────────────────── */
+
+/* Sits just past the last clip on its row, so "add to this row" is where the
+   row runs out rather than in a menu somewhere else. */
+.cs-nle-lane-add {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-1, 3px);
+    background: color-mix(in srgb, var(--nle-text) 8%, transparent);
+    color: var(--nle-text-dim);
+    cursor: pointer;
+    z-index: 2;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .cs-nle-lane-add {
+        opacity: 0;
+        transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+    }
+
+    .cs-nle-lane:hover .cs-nle-lane-add,
+    .cs-nle-lane:focus-within .cs-nle-lane-add,
+    .cs-nle-lane-add:focus-visible {
+        opacity: 1;
+    }
+}
+
+.cs-nle-lane-add:hover {
+    color: var(--human-foreground, #fff);
+    background: color-mix(in srgb, var(--human, #1f4f58) 70%, transparent);
+}
+
+.cs-nle-lane-add:focus-visible {
+    outline: 2px solid var(--human, #1f4f58);
+    outline-offset: 1px;
+}
+
+/* ── Asset picker styles live in AssetPicker.css (imported by AssetPicker). ── */
+
+/* ── Drop placeholder ──────────────────────────────────────────────────── */
+
+/*
+ * Shown only when a dragged clip will not land where it is being held: the row
+ * under the cursor is the wrong type, or it is already occupied at that moment.
+ * The ghost is the answer to "then where does it go".
+ */
+.cs-nle-drop {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1px dashed var(--human, #1f4f58);
+    border-radius: var(--r-sm, 4px);
+    background: color-mix(in srgb, var(--human, #1f4f58) 14%, transparent);
+    z-index: 3;
+    pointer-events: none;
+}
+
+.cs-nle-drop.is-new {
+    border-style: solid;
+    border-width: 2px;
+    background: color-mix(in srgb, var(--human, #1f4f58) 22%, transparent);
+}
+
+.cs-nle-drop-tag {
+    position: absolute;
+    top: -9px;
+    left: 4px;
+    padding: 0 4px;
+    border-radius: var(--r-sm, 4px);
+    background: var(--human, #1f4f58);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 14px;
+    white-space: nowrap;
+}
+
+/* ── Context menu ──────────────────────────────────────────────────────── */
+
+.cs-nle-ctx {
+    position: fixed;
+    z-index: 10000;
+    min-width: 200px;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--sp-1, 4px);
+    background: var(--card, #fff);
+    border: 1px solid var(--border, #e5e5e5);
+    border-radius: var(--r-3, 8px);
+    box-shadow: var(--sh-3, 0 8px 24px rgba(0, 0, 0, 0.14));
+    display: flex;
+    flex-direction: column;
+}
+
+.cs-nle-ctx button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3, 12px);
+    appearance: none;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    padding: 7px 10px;
+    font-size: var(--fs-sm, 13px);
+    border-radius: var(--r-2, 5px);
+    cursor: pointer;
+    color: var(--foreground, #111);
+}
+
+.cs-nle-ctx button:hover:not(:disabled) { background: var(--muted, #f5f5f5); }
+.cs-nle-ctx button:disabled { opacity: 0.4; cursor: not-allowed; }
+.cs-nle-ctx button.is-active {
+    background: color-mix(in srgb, var(--human, #1f4f58) 12%, transparent);
+    color: var(--human, #1f4f58);
+    font-weight: 600;
+}
+.cs-nle-ctx-sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--border, #e5e5e5);
+}
+
+.cs-nle-ctx kbd {
+    font-size: var(--fs-xs, 10px);
+    color: var(--muted-foreground, #888);
+    border: 1px solid var(--border, #e5e5e5);
+    border-radius: var(--r-1, 3px);
+    padding: 0 4px;
+}
+
+/* ── Subtitle panel ────────────────────────────────────────────────────── */
+
+.cs-subs {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    border: 1px solid var(--border, #e5e5e5);
+    border-radius: var(--r-3, 8px);
+    background: var(--background, #fff);
+    overflow: hidden;
+}
+
+.cs-subs-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2, 8px);
+    flex: 0 0 auto;
+    padding: var(--sp-2, 8px) var(--sp-3, 12px);
+    border-bottom: 1px solid var(--border, #e5e5e5);
+}
+
+.cs-subs-style {
+    display: grid;
+    grid-template-columns: minmax(88px, 0.8fr) minmax(0, 1.4fr);
+    gap: var(--sp-2, 8px);
+    flex: 0 0 auto;
+    padding: var(--sp-2, 8px) var(--sp-3, 12px);
+    border-bottom: 1px solid var(--border, #e5e5e5);
+    background: var(--muted, #f7f7f7);
+}
+
+.cs-subs-style-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    margin: 0;
+}
+
+.cs-subs-style-label {
+    font-size: var(--fs-xs, 11px);
+    font-weight: 500;
+    color: var(--muted-foreground, #666);
+}
+
+.cs-subs-style [data-slot="select"],
+.cs-subs-style-select,
+.cs-subs-style .cs-subs-font-select {
+    width: 100%;
+    min-width: 0;
+}
+
+.cs-subs-font-select .select-search,
+.cs-subs-font-select .select-multi,
+.cs-subs-font-select > .anchor {
+    min-height: 28px;
+    font-size: var(--fs-sm, 13px);
+}
+
+.cs-subs-title {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, 8px);
+    font-size: var(--fs-sm, 13px);
+    font-weight: 600;
+}
+
+.cs-subs-count {
+    font-weight: 400;
+    font-size: var(--fs-xs, 11px);
+    color: var(--muted-foreground, #888);
+    border: 1px solid var(--border, #e5e5e5);
+    border-radius: var(--r-pill, 999px);
+    padding: 0 7px;
+}
+
+.cs-subs-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--sp-1, 4px) 0;
+    scrollbar-gutter: stable;
+}
+
+.cs-subs-empty { padding: var(--sp-3, 12px); margin: 0; }
+
+.cs-subs-foot {
+    flex: 0 0 auto;
+    border-top: 1px solid var(--border, #e5e5e5);
+    padding: var(--sp-2, 8px);
+}
+
+.cs-subs-add { width: 100%; justify-content: center; }
+
+.cs-canvas-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4, 16px);
+    padding: var(--sp-3, 12px);
+}
+
+.cs-canvas-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2, 8px);
+}
+
+.cs-canvas-kicker-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2, 8px);
+}
+
+.cs-canvas-kicker {
+    font-size: var(--fs-xs, 11px);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted-foreground, #666);
+}
+
+.cs-canvas-modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.cs-canvas-color {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, 8px);
+}
+
+.cs-canvas-color input[type="color"] {
+    width: 36px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--border, #e5e5e5);
+    border-radius: var(--r-1, 4px);
+    background: transparent;
+    cursor: pointer;
+}
+
+.cs-canvas-slot {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, 8px);
+}
+
+.cs-canvas-thumb {
+    width: 64px;
+    height: 40px;
+    flex: 0 0 auto;
+    overflow: hidden;
+    border-radius: var(--r-1, 4px);
+    border: 1px solid var(--border, #e5e5e5);
+    background: var(--muted, #f4f4f5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cs-canvas-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cs-canvas-slot-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.cs-canvas-abstracts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.cs-canvas-abstract {
+    height: 52px;
+    border: 1px solid var(--border, #e5e5e5);
+    border-radius: var(--r-2, 6px);
+    color: #fff;
+    font-size: var(--fs-xs, 11px);
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
+    cursor: pointer;
+}
+
+.cs-canvas-abstract.is-selected {
+    outline: 2px solid var(--human, #0d9488);
+    outline-offset: 1px;
+}
+
+.cs-canvas-duration {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cs-nle-board-pad {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--muted, #f4f4f5) 55%, var(--card, #fff));
+}
+
+.cs-nle-board-pad.is-intro {
+    border-right: 1px dashed var(--border, #e5e5e5);
+}
+
+.cs-nle-board-pad.is-outro {
+    border-left: 1px dashed var(--border, #e5e5e5);
+}
+
+/* Timeline .cs-nle-tool is tinted for the dark board — recolor inside the
+   light subtitle rail so the kebab / close icons stay readable. */
+.cs-subs .cs-nle-tool {
+    color: var(--muted-foreground, #666);
+}
+
+.cs-subs .cs-nle-tool:hover,
+.cs-subs .cs-nle-tool[aria-expanded="true"] {
+    color: var(--foreground, #111);
+    background: var(--muted, #f3f4f6);
+}
+
+.cs-cue {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 28px;
+    align-items: start;
+    gap: var(--sp-2, 8px);
+    padding: var(--sp-2, 8px) var(--sp-3, 12px);
+    border-left: 2px solid transparent;
+}
+
+.cs-cue.is-active { border-left-color: var(--human, #1f4f58); }
+
+.cs-cue.is-focused {
+    background: color-mix(in srgb, var(--human, #1f4f58) 7%, transparent);
+}
+
+.cs-cue-text {
+    width: 100%;
+    border: 1px solid transparent;
+    border-radius: var(--r-2, 5px);
+    padding: 4px 6px;
+    background: transparent;
+    color: var(--foreground, #111);
+    font: inherit;
+    font-size: var(--fs-sm, 13px);
+    line-height: 1.4;
+    resize: vertical;
+}
+
+.cs-cue-text:hover { border-color: var(--border, #e5e5e5); }
+
+.cs-cue-text:focus {
+    border-color: var(--human, #1f4f58);
+    background: var(--background, #fff);
+    outline: none;
+}
+
+.cs-cue-times {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 4px;
+}
+
+.cs-cue-time {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted-foreground, #888);
+    font-size: var(--fs-xs, 11px);
+}
+
+.cs-cue-time-label { min-width: 20px; }
+
+.cs-cue-time-input {
+    width: 58px;
+    border: 1px solid transparent;
+    border-radius: var(--r-1, 3px);
+    padding: 1px 3px;
+    background: transparent;
+    color: var(--muted-foreground, #666);
+    font: inherit;
+    font-size: var(--fs-xs, 11px);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.cs-cue-time-input:hover { border-color: var(--border, #e5e5e5); }
+
+.cs-cue-time-input:focus {
+    border-color: var(--human, #1f4f58);
+    color: var(--foreground, #111);
+    outline: none;
+}
+
+.cs-cue-menu { position: relative; padding-top: 4px; }
+
+.cs-cue-menu-pop {
+    position: absolute;
+    top: 26px;
+    right: 0;
+    z-index: 20;
+    min-width: 168px;
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+    background: var(--background, #fff);
+    border: 1px solid var(--border, #e5e5e5);
+    border-radius: var(--r-3, 8px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+}
+
+.cs-cue-menu-pop button {
+    border: 0;
+    background: transparent;
+    text-align: left;
+    padding: 6px 8px;
+    border-radius: var(--r-2, 5px);
+    font-size: var(--fs-sm, 13px);
+    color: var(--foreground, #111);
+    cursor: pointer;
+}
+
+.cs-cue-menu-pop button:hover { background: var(--muted, #f5f5f5); }
+.cs-cue-menu-pop button.is-danger { color: var(--error, #c7361f); }
+
+/*
+ * The seam between two cues. It holds its height at rest so revealing the
+ * actions never shifts the list under the pointer.
+ */
+.cs-cue-seam {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2, 8px);
+    height: 22px;
+    opacity: 0;
+    transition: opacity 120ms ease;
+}
+
+.cs-cue-seam::before {
+    content: "";
+    position: absolute;
+    left: var(--sp-3, 12px);
+    right: var(--sp-3, 12px);
+    height: 1px;
+    background: var(--human, #1f4f58);
+}
+
+.cs-cue-seam:hover,
+.cs-cue-seam:focus-within { opacity: 1; }
+
+.cs-cue-seam-action {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 10px;
+    border: 1px solid var(--human, #1f4f58);
+    border-radius: var(--r-pill, 999px);
+    background: var(--background, #fff);
+    color: var(--human, #1f4f58);
+    font-size: var(--fs-xs, 11px);
+    cursor: pointer;
+}
+
+.cs-cue-seam-action:hover {
+    background: color-mix(in srgb, var(--human, #1f4f58) 10%, var(--background, #fff));
+}
+
+.cs-nle-hints {
+    margin: 0;
+    font-size: var(--fs-xs, 12px);
+    line-height: 1.6;
+}
+
+@media (max-width: 800px) {
+    .cs-nle-toolbar { justify-content: flex-start; }
+    .cs-nle-zoom, .cs-nle-volume { width: 64px; }
+    .cs-nle-tool { width: 26px; height: 26px; }
+}
+
+
+/* ---- SimpleTimeline / legacy cuts timeline (from CreativeStudio.css) ---- */
+.cs-cuts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.cs-cuts > * { min-width: 0; }
+.cs-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-start;
+  margin-bottom: var(--sp-4, 16px);
+}
+.cs-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.cs-create textarea.input, .cs-create .textarea { width: 100%; }
+.cs-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+.cs-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.cs-chip {
+  border: 1px solid var(--border, #e5e7eb);
+  background: transparent;
+  border-radius: 999px;
+  padding: 6px 12px;
+  text-transform: capitalize;
+  cursor: pointer;
+  font-size: 13px;
+}
+.cs-chip.active {
+  border-color: var(--human, #0d9488);
+  background: color-mix(in srgb, var(--human, #0d9488) 12%, transparent);
+  color: var(--human, #0d9488);
+}
+/* ── Delivery spec picker ────────────────────────────────────────────────── */
+
+.cs-delivery { display: flex; flex-direction: column; gap: 12px; }
+.cs-delivery .cs-chip { display: inline-flex; align-items: center; gap: 6px; }
+.cs-delivery-ratio {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  opacity: 0.65;
+  text-transform: none;
+}
+.cs-delivery-enhance {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: var(--r-2, 6px);
+  background: var(--surface, #fff);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.cs-delivery-enhance input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.cs-delivery-enhance strong {
+  display: block;
+  font-weight: 600;
+}
+.cs-delivery-enhance-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted, #6b7280);
+  font-size: 12px;
+  font-weight: 400;
+}
+.cs-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.cs-grid {
+  position: relative;
+  z-index: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sp-4, 16px);
+}
+.cs-project-card {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border-soft, var(--border, #e5e7eb));
+  border-radius: var(--r-3, 8px);
+  overflow: hidden;
+  transition: border-color var(--dur-normal, 200ms) var(--ease-out, ease),
+    box-shadow var(--dur-normal, 200ms) var(--ease-out, ease);
+}
+.cs-project-card:hover {
+  border-color: var(--border, #e5e7eb);
+  box-shadow: var(--sh-2, 0 4px 16px rgba(0, 0, 0, 0.06));
+}
+.cs-project-cover {
+  aspect-ratio: 3 / 4;
+  background: var(--surface-2, #f3f4f6);
+  overflow: hidden;
+}
+.cs-project-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cs-project-cover-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-5, #9ca3af);
+}
+.cs-project-foot {
+  padding: var(--sp-3, 12px) var(--sp-3, 12px) var(--sp-4, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2, 8px);
+}
+.cs-project-name {
+  font-weight: 650;
+  font-size: var(--fs-sm, 13px);
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cs-project-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.cs-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ai, #e11d48) 12%, transparent);
+  color: var(--ai, #e11d48);
+  text-transform: capitalize;
+}
+.cs-badge.muted {
+  background: var(--surface-2, #f3f4f6);
+  color: var(--text-muted, #6b7280);
+}
+.cs-badge.human {
+  background: color-mix(in srgb, var(--human, #0d9488) 12%, transparent);
+  color: var(--human, #0d9488);
+}
+.cs-badge.danger {
+  background: color-mix(in srgb, var(--danger, #dc2626) 12%, transparent);
+  color: var(--danger, #dc2626);
+}
+.cs-frame-card.is-selected {
+  border-color: var(--human, #0d9488);
+  box-shadow: 0 0 0 1px var(--human, #0d9488);
+}
+.cs-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted, #6b7280);
+  border: 1px dashed var(--border, #e5e7eb);
+  border-radius: 12px;
+}
+
+.cs-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .cs-shell { flex-direction: column; height: auto; }
+  .cs-main { overflow: visible; }
+  .cs-field-row { grid-template-columns: 1fr; }
+}
+
+.cs-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+.cs-progress-step {
+  font-size: 11px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border, #e5e7eb);
+  color: var(--text-muted, #6b7280);
+  text-transform: capitalize;
+}
+.cs-progress-step.done {
+  border-color: var(--human, #0d9488);
+  color: var(--human, #0d9488);
+}
+.cs-progress-step.current {
+  border-color: var(--ai, #e11d48);
+  background: color-mix(in srgb, var(--ai, #e11d48) 10%, transparent);
+  color: var(--ai, #e11d48);
+  font-weight: 600;
+}
+
+.cs-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.cs-script-block { margin-bottom: 16px; }
+.cs-script-block h4 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.cs-script-block textarea { width: 100%; min-height: 72px; }
+.cs-frame-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.cs-frame-card {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--surface, #fff);
+}
+.cs-frame-thumb {
+  aspect-ratio: 9/16;
+  max-height: 160px;
+  background: var(--surface-2, #f3f4f6);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.cs-frame-thumb img, .cs-frame-thumb video { width: 100%; height: 100%; object-fit: cover; }
+.cs-history { margin-top: 24px; }
+.cs-history details { border-top: 1px solid var(--border); padding-top: 12px; }
+.cs-history-item { font-size: 12px; color: var(--text-muted); padding: 4px 0; }
+
+.cs-timeline-editor { display: grid; gap: 16px; }
+.cs-timeline-preview {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.cs-timeline-video {
+  width: min(280px, 100%);
+  aspect-ratio: 9/16;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: var(--surface-2, #f3f4f6);
+  border: 1px solid var(--border);
+}
+.cs-timeline-video-empty { width: min(280px, 100%); max-height: 320px; }
+.cs-timeline-transport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cs-timeline-time { font-variant-numeric: tabular-nums; }
+
+.cs-timeline {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+  position: relative;
+  user-select: none;
+}
+.cs-timeline-scrub { cursor: ew-resize; }
+.cs-timeline-ruler {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 8px 4px 88px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2, #f3f4f6);
+}
+.cs-timeline-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ai, #e11d48);
+  z-index: 2;
+  pointer-events: none;
+  transform: translateX(-1px);
+}
+.cs-timeline-track {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  border-bottom: 1px solid var(--border);
+  min-height: 48px;
+}
+.cs-timeline-track:last-child { border-bottom: none; }
+.cs-timeline-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  padding: 12px 8px;
+  background: var(--surface-2, #f3f4f6);
+  color: var(--text-muted);
+}
+.cs-timeline-lane {
+  position: relative;
+  padding: 8px;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+}
+.cs-timeline-lane-abs {
+  display: block;
+  overflow: hidden;
+  min-height: 40px;
+  padding: 8px 0;
+}
+.cs-clip {
+  background: color-mix(in srgb, var(--ai, #e11d48) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ai, #e11d48) 35%, transparent);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+  min-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cs-clip-abs {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  min-width: 4px;
+  box-sizing: border-box;
+}
+.cs-clip.audio { background: color-mix(in srgb, var(--human, #0d9488) 14%, transparent); border-color: color-mix(in srgb, var(--human, #0d9488) 35%, transparent); }
+.cs-clip.subtitle { background: #fef3c7; border-color: #f59e0b; cursor: text; }
+.cs-subtitle-edit { width: 100%; font-size: 13px; margin-top: 8px; }
+
+.cs-export-list { display: grid; gap: 12px; }
+.cs-export-card { max-width: 420px; }
+.cs-export-error {
+  color: var(--ai, #e11d48);
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+.cs-export-warnings {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--text-muted, #6b7280);
+}
+
+.cs-credits-badge { margin-left: 0; }
+.cs-credits-panel { padding: 14px 16px; }
+.cs-credits-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.cs-credits-stages { display: grid; gap: 6px; }
+.cs-credits-stage-row,
+.cs-credits-action-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.cs-credits-stage-name,
+.cs-credits-action-row span:first-child {
+  color: var(--text-muted, #6b7280);
+  text-transform: capitalize;
+}
+.cs-credits-stage-amt,
+.cs-credits-action-row span:last-child {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.cs-credits-actions { margin-top: 10px; }
+.cs-credits-actions summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-muted, #6b7280);
+  margin-bottom: 6px;
+}
+
+/* Compose / library generate modals */
+.cs-compose-source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--sp-2, 8px);
+  margin-top: var(--sp-2, 8px);
+  max-height: 220px;
+  overflow: auto;
+}
+.cs-compose-source-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  color: inherit;
+}
+.cs-compose-source-tile:hover {
+  border-color: var(--human, #1F4F58);
+}
+.cs-compose-source-tile.is-selected {
+  border-color: var(--human, #1F4F58);
+  box-shadow: 0 0 0 1px var(--human, #1F4F58);
+}
+.cs-compose-source-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 10;
+  background: var(--surface-2, #f3f4f6);
+  color: var(--text-muted, #6b7280);
+  overflow: hidden;
+}
+.cs-compose-source-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cs-compose-source-meta {
+  display: grid;
+  gap: 2px;
+  padding: 0 8px 8px;
+  min-width: 0;
+}
+.cs-compose-source-meta strong {
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cs-compose-source-meta span {
+  font-size: 11.5px;
+  color: var(--text-muted, #6b7280);
+}
+.cs-library-gen-form .field {
+  margin-bottom: 0;
+}
+
+.cs-modal-lede { margin-top: 0; }
+.cs-compose-source-block + .cs-compose-source-block { margin-top: var(--sp-4, 16px); }
+
+.cs-library-gen-delivery {
+  display: grid;
+  gap: var(--sp-3, 12px);
+  margin-top: var(--sp-3, 12px);
+}
+.cs-library-gen-form .field + .field,
+.cs-library-gen-form .cs-library-gen-delivery + .field,
+.cs-library-gen-form .cs-library-gen-refs + .cs-library-gen-delivery {
+  margin-top: var(--sp-3, 12px);
+}
+.cs-library-gen-refs .field-hint {
+  display: block;
+  margin: 2px 0 8px;
+}
+.cs-library-gen-ref-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.cs-library-gen-ref-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: var(--r-2, 6px);
+  background: var(--surface, #fff);
+}
+.cs-library-gen-ref-chip img {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex: 0 0 auto;
+  background: #111;
+}
+.cs-library-gen-ref-chip span {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cs-library-gen-ref-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cs-library-gen-voice-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.cs-library-gen-voice-row .select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cs-library-gen-voice-row .btn {
+  flex: 0 0 auto;
+}
+

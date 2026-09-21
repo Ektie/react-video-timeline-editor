@@ -1,0 +1,112 @@
+/* Asset picker — shared by timeline Cuts and director chat attach. */
+
+.cs-picker-tabs {
+    display: flex;
+    gap: var(--sp-1, 4px);
+    margin-bottom: var(--sp-3, 12px);
+    border-bottom: 1px solid var(--border, #e5e5e5);
+}
+
+.cs-picker-tab {
+    padding: var(--sp-2, 8px) var(--sp-3, 12px);
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--muted-foreground, #666);
+    font-size: var(--fs-sm, 13px);
+    cursor: pointer;
+}
+
+.cs-picker-tab.is-on {
+    border-bottom-color: var(--human, #1f4f58);
+    color: var(--foreground, #111);
+}
+
+.cs-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--sp-2, 8px);
+    max-height: 46vh;
+    overflow-y: auto;
+}
+
+.cs-picker-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2, 8px);
+    padding: var(--sp-2, 8px);
+    border: 1px solid var(--border, #e5e5e5);
+    border-radius: var(--r-sm, 4px);
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cs-picker-item:hover {
+    border-color: var(--human, #1f4f58);
+    background: color-mix(in srgb, var(--human, #1f4f58) 6%, transparent);
+}
+
+.cs-picker-thumb {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    overflow: hidden;
+    border-radius: var(--r-sm, 4px);
+    background: var(--muted, #f4f4f4);
+    color: var(--muted-foreground, #888);
+}
+
+.cs-picker-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cs-picker-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.cs-picker-meta strong {
+    overflow: hidden;
+    font-size: var(--fs-sm, 13px);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cs-picker-empty,
+.cs-picker-upload {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2, 8px);
+    padding: var(--sp-2, 8px) 0;
+}
+
+.cs-picker-group {
+    margin-bottom: var(--sp-3, 12px);
+}
+
+.cs-picker-group-title {
+    font-size: var(--fs-xs, 12px);
+    font-weight: 600;
+    color: var(--muted-foreground, #666);
+    margin-bottom: var(--sp-2, 8px);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.cs-picker-groups {
+    max-height: 46vh;
+    overflow-y: auto;
+}
+
+.cs-picker-groups .cs-picker-grid {
+    max-height: none;
+    overflow: visible;
+}

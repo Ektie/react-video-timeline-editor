@@ -6,6 +6,8 @@ Embed a timeline, tracks, clips, and browser playback into your own React or Nex
 
 This package is **not** [Ektie Creative](https://ektie.com/creative). Creative is a separate commercial production platform.
 
+**Live demo:** [https://react-video-timeline-editor-nextjs.vercel.app](https://react-video-timeline-editor-nextjs.vercel.app)
+
 ## Install
 
 ```bash

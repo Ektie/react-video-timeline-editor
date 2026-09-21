@@ -14,6 +14,8 @@ This repository is **not** [Ektie Creative](https://ektie.com/creative). It is t
 | Who it is for | Developers building a product | Teams that need films, stills, and campaign creative shipped |
 | You get | Timeline, tracks, clips, preview, JSON | Studio pipeline, AI generation, brand context, managed infra |
 
+**Live demo:** [react-video-timeline-editor-nextjs.vercel.app](https://react-video-timeline-editor-nextjs.vercel.app)
+
 **Docs:** [API](docs/api.md) · [Data model](docs/data-model.md) · [Architecture](docs/architecture.md) · [Next.js](docs/nextjs.md) · [Customization](docs/customization.md)
 
 **Local demo:** `npm run demo` → [http://localhost:3005](http://localhost:3005)
@@ -110,6 +112,8 @@ Implemented in this repository:
 ---
 
 ## Demo
+
+**Live:** [https://react-video-timeline-editor-nextjs.vercel.app](https://react-video-timeline-editor-nextjs.vercel.app)
 
 `demo/nextjs` is a **host application**. It is not the editor. It shows how a Next.js App Router app imports `@ektie/react-video-timeline-editor`.
 

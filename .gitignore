@@ -16,3 +16,4 @@ auth.json
 playwright-report
 test-results
 *.tsbuildinfo
+*.tgz

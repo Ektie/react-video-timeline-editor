@@ -10,7 +10,7 @@ npm install @ektie/react-video-timeline-editor
 
 ## 2. Client boundary
 
-The editor uses DOM APIs. Put `next/dynamic({ ssr: false })` in a Client Component (Next.js 15 forbids `ssr: false` in Server Components). See `demo/nextjs/components/EditorHost.js`.
+The editor uses DOM APIs. Import it from a Client Component. Next.js 15 forbids `ssr: false` on `next/dynamic` in Server Components — put that dynamic import in a `"use client"` module (see `demo/nextjs/components/EditorHost.js`).
 
 ```jsx
 "use client";

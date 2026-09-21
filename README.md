@@ -4,7 +4,7 @@
 
 Build professional video editing into React and Next.js products: multi-track timeline, clips, playback, and a JSON project document you own.
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 This repository is **not** [Ektie Creative](https://ektie.com/creative). It is the embeddable editor. Ektie Creative is a separate commercial product for teams that want a complete AI-powered creative production platform rather than a component to ship themselves.
 
@@ -36,7 +36,7 @@ Your React / Next.js application
  Timeline · tracks · clips · assets · playback
 ```
 
-The package is Apache License 2.0. You can use it in commercial products, including closed-source hosts.
+The package is licensed under the **GNU Affero General Public License v3.0**. You may use it commercially; if you distribute the editor or offer a modified version as a network service, AGPL-3.0 requires you to provide the corresponding source.
 
 ---
 
@@ -55,7 +55,7 @@ Neither is a trial of the other. The editor is not a limited demo of Ektie Creat
 | Video, stills, voice, music, captions | Yes | Yes |
 | Trim, split, move, undo/redo, playback | Yes | Yes |
 | Embed in *your* application | Yes | No |
-| Apache 2.0, self-host the editor | Yes | No |
+| AGPL-3.0, self-host the editor | Yes | No |
 | JSON project you persist anywhere | Yes | Hosted projects and library |
 | Bundled encoder / cloud render | No — you plug `onExport` | Yes (managed production) |
 | Film production pipeline (concept → stages → ship) | No | Yes |
@@ -400,6 +400,7 @@ npm install          # hoist workspaces
 npm test             # packages/editor node:test suite
 npm run demo         # Next.js demo at http://localhost:3005
 npm run build        # Vite build of the editor package
+npm run pack:editor  # npm tarball of @ektie/react-video-timeline-editor
 npm run security-scan
 ```
 
@@ -429,14 +430,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 
-**Available now** — embeddable NLE, JSON document, Next.js reference demo, Apache 2.0.
+**Available now** — embeddable NLE, JSON document, Next.js reference demo, AGPL-3.0.
 
 **Planned (this repository)**
 
 - npm publish of `@ektie/react-video-timeline-editor`
 - Completer TypeScript types for tracks/clips
 - Wire or remove unused `slots.*` declarations
-- Host-side export *examples* (your encoder, not a bundled GPL runtime)
+- Host-side export *examples* (your encoder, not a bundled encoder runtime)
 
 **Not planned here:** AI generation, storyboards, managed render farms, or Ektie Creative’s production pipeline. Those belong in host applications (including Ektie Creative).
 
@@ -454,8 +455,8 @@ Audit notes for maintainers: [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md).
 
 ## License
 
-Licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Licensed under the **GNU Affero General Public License v3.0**. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 The package depends on `lucide-react` (ISC). Caption preview may load stylesheet URLs from Google Fonts at runtime; those fonts are not vendored in this repository.
 
-No extra field-of-use restrictions are added beyond Apache 2.0.
+No extra field-of-use restrictions are added beyond AGPL-3.0.

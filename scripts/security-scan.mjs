@@ -42,6 +42,7 @@ const ALLOW_FILES = new Set([
     "docs/architecture.md",
     "docs/nextjs.md",
     "docs/ektie.md",
+    "packages/editor/README.md",
     "demo/nextjs/components/EditorDemo.js",
 ]);
 

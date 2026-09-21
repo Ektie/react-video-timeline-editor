@@ -9,6 +9,7 @@
     "build": "npm run build -w @ektie/react-video-timeline-editor",
     "test": "npm run test -w @ektie/react-video-timeline-editor",
     "demo": "npm run dev -w @ektie/timeline-editor-nextjs-demo",
+    "pack:editor": "npm pack -w @ektie/react-video-timeline-editor",
     "security-scan": "node scripts/security-scan.mjs"
   }
 }

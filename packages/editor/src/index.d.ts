@@ -37,9 +37,20 @@ export interface VideoTimelineEditorProps {
     slots?: {
         headerStart?: ReactNode;
         headerEnd?: ReactNode;
-        toolbarExtra?: ReactNode;
-        contextMenuExtra?: ReactNode;
-        emptyState?: ReactNode;
+        toolbarExtra?: ReactNode | ((context: {
+            selection: string[];
+            tracks: unknown[];
+            currentMs: number;
+            totalMs: number;
+            splitAtPlayhead: () => void;
+        }) => ReactNode);
+        contextMenuExtra?: ReactNode | ((context: {
+            clipId: string | null;
+            clip?: unknown;
+            track?: unknown;
+            close: () => void;
+        }) => ReactNode);
+        emptyState?: ReactNode | (() => ReactNode);
     };
     className?: string;
     style?: CSSProperties;
@@ -60,3 +71,37 @@ export const TRACK_LABELS: Record<string, string>;
 export function serializeTracks(tracks: unknown): unknown[];
 export function normalizeTracks(timeline: unknown): unknown[];
 export function wallClockTotalMs(tracks: unknown): number;
+
+export function ToolButton(props: {
+    tooltip: string;
+    label?: ReactNode;
+    className?: string;
+    children?: ReactNode;
+    onClick?: (e: React.MouseEvent) => void;
+    disabled?: boolean;
+    [key: string]: unknown;
+}): JSX.Element;
+
+export function ToolToggle(props: {
+    tooltip: string;
+    label?: ReactNode;
+    isSelected?: boolean;
+    className?: string;
+    children?: ReactNode;
+    onChange?: (selected: boolean) => void;
+    [key: string]: unknown;
+}): JSX.Element;
+
+export function ToolSep(): JSX.Element;
+
+export function CtxItem(props: {
+    shortcut?: string;
+    isActive?: boolean;
+    className?: string;
+    children?: ReactNode;
+    onPointerDown?: (e: React.PointerEvent) => void;
+    onClick?: (e: React.MouseEvent) => void;
+    disabled?: boolean;
+    [key: string]: unknown;
+}): JSX.Element;
+

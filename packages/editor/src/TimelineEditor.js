@@ -1297,6 +1297,11 @@ export default function TimelineEditor({
         [tracks]
     );
 
+    const isEmpty = useMemo(
+        () => !tracks.length || tracks.every((track) => !track.items || track.items.length === 0),
+        [tracks]
+    );
+
     const transitionMarks = useMemo(() => {
         const marks = [];
         pictureTracks(tracks).filter((t) => t.visible !== false).forEach((track) => {
@@ -1859,6 +1864,20 @@ export default function TimelineEditor({
                                     )}
                                 </div>
                             )}
+                            {slots?.toolbarExtra && (
+                                <>
+                                    <ToolSep />
+                                    {typeof slots.toolbarExtra === "function"
+                                        ? slots.toolbarExtra({
+                                            selection: Array.from(selection),
+                                            tracks,
+                                            currentMs,
+                                            totalMs,
+                                            splitAtPlayhead,
+                                        })
+                                        : slots.toolbarExtra}
+                                </>
+                            )}
                         </div>
 
                         <div className="cs-nle-toolbar-group cs-nle-transport">
@@ -2015,7 +2034,7 @@ export default function TimelineEditor({
                 </div>
             )}
 
-            <div className="cs-nle-board">
+            <div className={`cs-nle-board ${isEmpty && slots?.emptyState ? "has-empty-state" : ""}`}>
                 <div className="cs-nle-board-body">
                 <div className="cs-nle-gutter" style={{ width: GUTTER_WIDTH }}>
                     <div className="cs-nle-gutter-ruler" />
@@ -2287,6 +2306,11 @@ export default function TimelineEditor({
                         </div>
                     </div>
                 </div>
+                {isEmpty && slots?.emptyState && (
+                    <div className="cs-nle-empty-state">
+                        {typeof slots.emptyState === "function" ? slots.emptyState() : slots.emptyState}
+                    </div>
+                )}
                 </div>
                 {renderAddTrackControl()}
             </div>
@@ -2378,6 +2402,19 @@ export default function TimelineEditor({
                     <CtxItem shortcut="]" onPointerDown={runCtxAction(selectAllToTheRight)}>
                         Select all to the right on this row
                     </CtxItem>
+                    {slots?.contextMenuExtra && (
+                        <>
+                            <div className="cs-nle-ctx-sep" role="separator" />
+                            {typeof slots.contextMenuExtra === "function"
+                                ? slots.contextMenuExtra({
+                                    clipId: ctxMenu.clipId,
+                                    clip: ctxMenu.clipId ? findClip(tracks, ctxMenu.clipId)?.item : null,
+                                    track: ctxMenu.clipId ? findClip(tracks, ctxMenu.clipId)?.track : null,
+                                    close: () => setCtxMenu(null),
+                                })
+                                : slots.contextMenuExtra}
+                        </>
+                    )}
                     <CtxItem onPointerDown={runCtxAction(() => setSelection(new Set()))}>
                         Deselect
                     </CtxItem>

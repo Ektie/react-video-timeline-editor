@@ -692,11 +692,36 @@ button.cs-nle-caption:focus-visible {
 }
 
 .cs-nle-board-body {
+    position: relative;
     display: flex;
     align-items: stretch;
     min-height: 0;
     overflow: hidden;
     border-radius: var(--r-3, 8px) var(--r-3, 8px) 0 0;
+}
+
+.cs-nle-board.has-empty-state .cs-nle-board-body {
+    min-height: 140px;
+}
+
+.cs-nle-board.has-empty-state .cs-nle-gutter,
+.cs-nle-board.has-empty-state .cs-nle-scroll {
+    opacity: 0.35;
+}
+
+.cs-nle-empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    pointer-events: none;
+    padding: var(--sp-4, 16px);
+}
+
+.cs-nle-empty-state > * {
+    pointer-events: auto;
 }
 
 .cs-nle-gutter {

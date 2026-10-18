@@ -322,10 +322,13 @@ Details: [docs/data-model.md](docs/data-model.md).
 | `aspectRatio` / `resolution` | Preview frame (falls back to `project`) |
 | `saveState` / `savedAt` / `onRetrySave` | Host save status chrome |
 | `onExport` | Optional export action — **no encoder inside the package** |
-| `slots.headerStart` / `slots.headerEnd` | Host controls in the toolbar |
+| `slots.headerStart` / `slots.headerEnd` | Host controls in the view toolbar |
+| `slots.toolbarExtra` | Extra host controls in the edit toolbar |
+| `slots.contextMenuExtra` | Custom menu options in clip right-click context menu |
+| `slots.emptyState` | Custom UI rendered when the timeline has no clips |
 | `className` | Wrapper class |
 
-`slots.toolbarExtra`, `slots.contextMenuExtra`, and `slots.emptyState` appear in the TypeScript definitions but are **not wired** in the current UI. Do not rely on them yet.
+All five extension slots (`headerStart`, `headerEnd`, `toolbarExtra`, `contextMenuExtra`, `emptyState`) are wired and ready to use.
 
 ---
 
@@ -440,7 +443,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 - npm publish of `@ektie/react-video-timeline-editor`
 - Completer TypeScript types for tracks/clips
-- Wire or remove unused `slots.*` declarations
 - Host-side export *examples* (your encoder, not a bundled encoder runtime)
 
 **Not planned here:** AI generation, storyboards, managed render farms, or Ektie Creative’s production pipeline. Those belong in host applications (including Ektie Creative).

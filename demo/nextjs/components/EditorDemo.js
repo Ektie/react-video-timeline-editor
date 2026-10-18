@@ -4,11 +4,14 @@ import { useCallback, useMemo, useState } from "react";
 import {
     VideoTimelineEditor,
     createEmptyProject,
+    ToolButton,
+    CtxItem,
 } from "@ektie/react-video-timeline-editor";
 import "@ektie/react-video-timeline-editor/style.css";
 import { buildSampleProject, SAMPLE_ASSETS } from "../lib/sampleProject";
 
 const STORAGE_KEY = "vte-demo-project";
+let eventSeq = 0;
 
 function probeDuration(file) {
     return new Promise((resolve) => {
@@ -33,12 +36,12 @@ export default function EditorDemo() {
     const sample = useMemo(() => buildSampleProject(), []);
     const [project, setProject] = useState(sample);
     const [events, setEvents] = useState(() => [
-        { at: Date.now(), message: "Loaded sample project" },
+        { id: ++eventSeq, at: Date.now(), message: "Loaded sample project" },
     ]);
     const [saveState, setSaveState] = useState("idle");
 
     const log = useCallback((message) => {
-        setEvents((list) => [{ at: Date.now(), message }, ...list].slice(0, 12));
+        setEvents((list) => [{ id: ++eventSeq, at: Date.now(), message }, ...list].slice(0, 12));
     }, []);
 
     const handleChange = useCallback((next) => {
@@ -101,6 +104,69 @@ export default function EditorDemo() {
         log(`Loaded ${file.name}`);
     };
 
+    const flagClip = useCallback((clipId) => {
+        if (!clipId || !project?.tracks) return;
+        let targetLabel = "";
+        const nextTracks = project.tracks.map((track) => ({
+            ...track,
+            items: (track.items || []).map((item) => {
+                if (item._id !== clipId) return item;
+                const isFlagged = item.label?.startsWith("🚩 ");
+                const nextLabel = isFlagged
+                    ? item.label.replace(/^🚩 (?:\[Coaching Moment\] )?/, "")
+                    : `🚩 [Coaching Moment] ${item.label || track.type}`;
+                targetLabel = nextLabel;
+                return {
+                    ...item,
+                    label: nextLabel,
+                };
+            }),
+        }));
+        log(`Flagged: ${targetLabel}`);
+        const next = { ...project, tracks: nextTracks };
+        try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+            /* quota / private mode */
+        }
+        setProject(next);
+    }, [project, log]);
+
+    const highlightClips = useCallback((selection = []) => {
+        if (!project?.tracks) return;
+        const targetIds = new Set(selection);
+        const hasExplicitSelection = targetIds.size > 0;
+        let count = 0;
+        const nextTracks = project.tracks.map((track) => ({
+            ...track,
+            items: (track.items || []).map((item) => {
+                const match = hasExplicitSelection ? targetIds.has(item._id) : (track.type === "video" && count === 0);
+                if (!match) return item;
+                count++;
+                const isHighlighted = item.label?.startsWith("⭐ ");
+                const nextLabel = isHighlighted
+                    ? item.label.replace(/^⭐ (?:\[Highlight\] )?/, "")
+                    : `⭐ [Highlight] ${item.label || track.type}`;
+                return {
+                    ...item,
+                    label: nextLabel,
+                };
+            }),
+        }));
+        if (count > 0) {
+            log(`Toggled highlight on ${count} clip(s)`);
+        } else {
+            log("No clips found to highlight");
+        }
+        const next = { ...project, tracks: nextTracks };
+        try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+            /* quota / private mode */
+        }
+        setProject(next);
+    }, [project, log]);
+
     return (
         <div className="demo-shell">
             <header className="demo-top">
@@ -141,6 +207,40 @@ export default function EditorDemo() {
                             Save JSON
                         </button>
                     ),
+                    toolbarExtra: ({ selection }) => (
+                        <ToolButton
+                            tooltip={selection.length ? `Create highlight from ${selection.length} clip(s)` : "Create highlight"}
+                            label="Highlight"
+                            onClick={() => highlightClips(selection)}
+                        />
+                    ),
+                    contextMenuExtra: ({ clip, close }) => (
+                        <CtxItem
+                            onPointerDown={() => {
+                                if (clip?._id) flagClip(clip._id);
+                                close();
+                            }}
+                        >
+                            Flag as coaching moment
+                        </CtxItem>
+                    ),
+                    emptyState: (
+                        <div style={{
+                            padding: "16px 24px",
+                            background: "rgba(255, 255, 255, 0.92)",
+                            border: "1px dashed #bbb",
+                            borderRadius: "8px",
+                            textAlign: "center",
+                            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+                        }}>
+                            <p style={{ margin: "0 0 4px", fontWeight: 600, fontSize: "13px" }}>
+                                Timeline is empty
+                            </p>
+                            <p style={{ margin: 0, fontSize: "12px", color: "#666" }}>
+                                Add media from the toolbar or load the sample project above.
+                            </p>
+                        </div>
+                    ),
                 }}
             />
 
@@ -149,7 +249,7 @@ export default function EditorDemo() {
                 <p>Host <code>onChange</code> and import callbacks. Copy this pattern into your app.</p>
                 <ol>
                     {events.map((event) => (
-                        <li key={event.at + event.message}>
+                        <li key={event.id}>
                             <time>{new Date(event.at).toLocaleTimeString()}</time>
                             {event.message}
                         </li>

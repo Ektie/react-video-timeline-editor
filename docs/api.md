@@ -12,7 +12,7 @@
 | `aspectRatio` / `resolution` | Preview frame |
 | `saveState` / `savedAt` / `onRetrySave` | Host save chrome |
 | `onExport` | Optional export action |
-| `slots.headerStart` / `slots.headerEnd` | Host controls |
+| `slots.headerStart` / `slots.headerEnd` / `slots.toolbarExtra` / `slots.contextMenuExtra` / `slots.emptyState` | Host controls / toolbar extra / context menu / empty state |
 
 ## Headless
 
